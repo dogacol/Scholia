@@ -1,4 +1,4 @@
-// Simple Genius-like annotator for a single work, storing annotations in localStorage.
+// Simple Scholia-like annotator for a single work, storing annotations in localStorage.
 // Text is loaded from a plain UTF-8 file and split into paragraphs.
 const textContainer = document.getElementById('textContainer');
 const searchBox = document.getElementById('searchBox');
@@ -17,7 +17,7 @@ const btnExport = document.getElementById('btn-export');
 let docParagraphs = []; // [{id, text}]
 let annotations = [];   // [{id, pid, start, end, exact, prefix, suffix, body, tags, createdAt}]
 
-const STORAGE_KEY = 'philogenius_annotations_v1';
+const STORAGE_KEY = 'scholia_annotations_v1';
 
 function loadAnnotations() {
   try {
@@ -271,7 +271,7 @@ searchBox.addEventListener('input', () => {
       const h = hits[i];
       wrapOffsetsInParagraph(p, h.start, h.end, `search-${i}`);
       // mark the newly created span for styling
-      const span = p.querySelector('span.annotation[data-ann-id="search-' + i + '"]') || p.querySelector('span.annotation'); // fallback
+      const span = p.querySelector('span.annotation[data-ann-id="search-' + i + '"]') || p.querySelector('span.annotation');
       if (span) span.classList.add('searchHit');
     }
   });
@@ -283,7 +283,8 @@ btnExport.addEventListener('click', () => {
   const blob = new Blob([data], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'annotations.json'; a.click();
+  a.href = url; a.download = 'scholia-annotations.json';
+  a.click();
   URL.revokeObjectURL(url);
 });
 
@@ -321,8 +322,8 @@ linkAntichrist.addEventListener('click', (e) => {
 // Auto-load on first visit
 window.addEventListener('DOMContentLoaded', () => {
   loadAnnotations();
-  const src = linkAntichrist.dataset.src;
+  const src = linkAntichrist.dataset.src; // e.g., "antichrist_de_sample.txt" in same folder as index.html
   loadText(src).catch(err => {
-    textContainer.textContent = 'Failed to load the sample text. Add a public-domain text file under /texts and set the link.';
+    textContainer.textContent = 'Failed to load the sample text. Place a public-domain text file alongside index.html and set the link.';
   });
 });
