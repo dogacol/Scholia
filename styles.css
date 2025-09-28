@@ -1,0 +1,31 @@
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif;line-height:1.55}
+header{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:0.6rem 1rem;border-bottom:1px solid #ddd;position:sticky;top:0;background:#fff;z-index:10}
+.brand{font-weight:700}
+nav{display:flex;gap:0.6rem;align-items:center}
+nav a{color:#0a5; text-decoration:none; font-weight:600}
+nav a:hover{text-decoration:underline}
+header .search{flex:1;display:flex;justify-content:flex-end}
+#searchBox{width:min(520px,80vw);padding:0.45rem 0.6rem;border:1px solid #ccc;border-radius:6px}
+
+main{display:grid;grid-template-columns: 1fr 340px;gap:0;border-top:0}
+#reader{padding:1rem 1rem 4rem 1rem;max-width: 920px}
+#textContainer{max-width: 860px}
+#textContainer p{margin:0.6rem 0;padding:0.2rem 0}
+#textContainer p:hover{background:#fafafa}
+
+#sidebar{border-left:1px solid #eee;height:calc(100vh - 56px);position:sticky;top:56px;padding:0.6rem 0.6rem 1rem 0.6rem;overflow:auto;background:#fcfcfc}
+#sidebarHeader{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;padding-bottom:0.4rem;margin-bottom:0.6rem}
+#annotationView{font-size:0.95rem;white-space:pre-wrap}
+
+.annotation{background: #fff3ac; border-bottom: 1px dotted #b48c00; cursor: pointer; padding: 0 1px}
+.annotation:hover{background:#ffe88a}
+
+#annotateToolbar{position:absolute; background:#fff; border:1px solid #ddd; border-radius:8px; padding:0.5rem; box-shadow:0 8px 24px rgba(0,0,0,.1); width:min(420px,92vw); display:none; z-index:20}
+#annotateToolbar textarea, #annotateToolbar input{width:100%; margin:0.25rem 0}
+#annotateToolbar .row{display:flex; gap:0.5rem; align-items:center; justify-content:flex-end}
+
+#tooltip{position:absolute; background:#222; color:#fff; font-size:12px; padding:6px 8px; border-radius:6px; max-width: 360px; z-index:30}
+
+footer{border-top:1px solid #eee;padding:0.6rem 1rem;color:#666;font-size:0.9rem}
+button{cursor:pointer}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PhiloGenius — Nietzsche: Der Antichrist</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">PhiloGenius</div>
+    <nav>
+      <a href="#" id="link-antichrist" data-src="texts/antichrist_de_sample.txt">Nietzsche — Der Antichrist</a>
+      <button id="btn-import" title="Import annotations JSON">Import</button>
+      <button id="btn-export" title="Export annotations JSON">Export</button>
+    </nav>
+    <div class="search">
+      <input type="search" id="searchBox" placeholder="Search in text…" aria-label="Search in text"/>
+    </div>
+  </header>
+
+  <main>
+    <section id="reader">
+      <div id="textContainer" aria-live="polite"></div>
+    </section>
+    <aside id="sidebar" aria-label="Annotations panel">
+      <div id="sidebarHeader">
+        <h2>Annotation</h2>
+        <button id="closeSidebar" aria-label="Close">×</button>
+      </div>
+      <div id="annotationView"></div>
+    </aside>
+  </main>
+
+  <div id="annotateToolbar" role="dialog" aria-modal="false">
+    <form id="annotateForm">
+      <textarea id="noteBody" rows="6" placeholder="Add your explanation, with citations if relevant…" required></textarea>
+      <div class="row">
+        <input id="noteTags" placeholder="tags,comma,separated" />
+      </div>
+      <div class="row">
+        <button type="submit">Save annotation</button>
+        <button type="button" id="cancelAnnotate">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="tooltip" role="tooltip" hidden></div>
+
+  <footer>
+    <p>
+      Text loader expects a public-domain source. This demo ships with a short German sample.
+      For a full edition, place a public-domain text file under <code>texts/</code> and update the link.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
