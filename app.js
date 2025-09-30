@@ -454,9 +454,24 @@ function openAnnotation(annId) {
 }
 
 closeSidebar.addEventListener('click', () => {
-  sidebar.style.display = 'block'; // keep layout but clear content
   annotationView.innerHTML = '<em>No annotation selected.</em>';
-  // do not clear hash to allow sharing
+  sidebar.style.display = 'none';
+  if (currentWork) {
+    updateUrlHash({ work: currentWork.id });
+  } else {
+    updateUrlHash({});
+  }
+});
+
+window.addEventListener('hashchange', () => {
+  if (!currentWork) return;
+  const { ann } = readHashParams();
+  if (ann) {
+    openAnnotation(ann);
+  } else {
+    annotationView.innerHTML = '<em>No annotation selected.</em>';
+    sidebar.style.display = 'none';
+  }
 });
 
 function restoreFromHash() {
