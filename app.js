@@ -168,6 +168,11 @@ async function loadText(work, options = {}) {
   landingSection.setAttribute('hidden', '');
   readerShell.removeAttribute('hidden');
   sidebar.style.display = 'block';
+  if (searchBox) {
+    searchBox.disabled = true;
+    searchBox.value = '';
+    searchBox.placeholder = 'Loading work…';
+  }
   textContainer.innerHTML = '<p class="loading">Loading work…</p>';
   try {
     const res = await fetch(work.src);
@@ -191,6 +196,11 @@ async function loadText(work, options = {}) {
     }
   } catch (err) {
     textContainer.innerHTML = '<p class="loading-error">Failed to load the selected work.</p>';
+    if (searchBox) {
+      searchBox.disabled = true;
+      searchBox.value = '';
+      searchBox.placeholder = 'Search in text…';
+    }
     alert('Failed to load text: ' + err.message);
   }
 }
