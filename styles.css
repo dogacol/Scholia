@@ -31,6 +31,13 @@ body:not(.is-reading) #readerSearch { display: none; }
   border: 1px solid #ccc;
   border-radius: 6px;
 }
+#searchBox:disabled {
+  background: #f5f5f5;
+  color: #777;
+  cursor: not-allowed;
+  border-color: #ddd;
+  box-shadow: none;
+}
 
 main {
   padding: 1.5rem 1rem;
