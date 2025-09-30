@@ -3,6 +3,8 @@
 const textContainer = document.getElementById('textContainer');
 const searchBox = document.getElementById('searchBox');
 const linkAntichrist = document.getElementById('link-antichrist');
+const latestWorksList = document.getElementById('latestWorksList');
+const headerEl = document.querySelector('header');
 const sidebar = document.getElementById('sidebar');
 const closeSidebar = document.getElementById('closeSidebar');
 const annotationView = document.getElementById('annotationView');
@@ -18,7 +20,33 @@ let docParagraphs = []; // [{id, text}]
 let annotations = [];   // [{id, pid, start, end, exact, prefix, suffix, body, tags, createdAt}]
 let currentSearchMatches = new Map(); // pid -> [{id, start, end}]
 
+if (latestWorksList) {
+  latestWorksList.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-work-id]');
+    if (!button) return;
+    event.preventDefault();
+    const workId = button.dataset.workId;
+    if (workId) activateWork(workId).catch(err => console.error(err));
+  });
+}
+
 const STORAGE_KEY = 'scholia_annotations_v1';
+
+const latestWorks = [
+  {
+    id: 'antichrist-1895-de',
+    title: 'Der Antichrist',
+    author: 'Friedrich Nietzsche',
+    year: 1895,
+    language: 'German',
+    src: 'antichrist_de_sample.txt',
+    description: 'Sample selection from the 1895 German publication prepared for the annotation demo.'
+  }
+];
+
+const worksIndex = new Map(latestWorks.map(work => [work.id, work]));
+let currentWorkId = null;
+const DEFAULT_WORK_ID = latestWorks[0]?.id || null;
 
 function loadAnnotations() {
   try {
@@ -41,6 +69,71 @@ async function loadText(url) {
   currentSearchMatches = new Map();
   if (searchBox) searchBox.value = '';
   renderText();
+}
+
+function renderLatestWorks() {
+  if (!latestWorksList) return;
+  const fragments = latestWorks.map(work => {
+    const meta = [work.author, work.year, work.language].filter(Boolean).join(' · ');
+    const description = work.description ? `<span class="latest-works__description">${escapeHtml(work.description)}</span>` : '';
+    const metaMarkup = meta ? `<span class="latest-works__meta">${escapeHtml(meta)}</span>` : '';
+    return `<li class="latest-works__item" data-work-id="${work.id}">
+      <button type="button" class="latest-works__link" data-work-id="${work.id}" aria-pressed="false">
+        <span class="latest-works__title">${escapeHtml(work.title)}</span>
+        ${metaMarkup}
+        ${description}
+      </button>
+    </li>`;
+  });
+  latestWorksList.innerHTML = fragments.join('');
+  refreshLayoutMetrics();
+}
+
+function updateActiveWorkUI(activeId) {
+  if (latestWorksList) {
+    const items = latestWorksList.querySelectorAll('.latest-works__item');
+    items.forEach(item => {
+      const workId = item.dataset.workId;
+      const isActive = workId === activeId;
+      item.classList.toggle('latest-works__item--active', isActive);
+      const button = item.querySelector('.latest-works__link');
+      if (button) button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+  if (linkAntichrist) {
+    const isActive = linkAntichrist.dataset.workId === activeId;
+    linkAntichrist.classList.toggle('is-active', isActive);
+  }
+}
+
+async function activateWork(workId, { skipIfSame = false } = {}) {
+  const work = worksIndex.get(workId);
+  if (!work) return;
+  if (skipIfSame && currentWorkId === workId) return;
+  if (linkAntichrist) {
+    linkAntichrist.textContent = `${work.author} — ${work.title}`;
+    linkAntichrist.dataset.src = work.src;
+    linkAntichrist.dataset.workId = work.id;
+  }
+  updateActiveWorkUI(workId);
+  try {
+    await loadText(work.src);
+    currentWorkId = workId;
+    updateActiveWorkUI(workId);
+  } catch (err) {
+    alert('Failed to load text: ' + err.message);
+    throw err;
+  } finally {
+    refreshLayoutMetrics();
+  }
+}
+
+function refreshLayoutMetrics() {
+  if (!headerEl) return;
+  const height = headerEl.offsetHeight;
+  if (height > 0) {
+    document.documentElement.style.setProperty('--header-height', `${height}px`);
+  }
 }
 
 function renderText() {
@@ -344,17 +437,32 @@ btnImport.addEventListener('click', async () => {
 // Utility
 function escapeHtml(s){return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]))}
 
-// Load sample on click
+// Load work via navigation link
 linkAntichrist.addEventListener('click', (e) => {
   e.preventDefault();
-  loadText(linkAntichrist.dataset.src).catch(err => alert('Failed to load text: '+err.message));
+  const workId = linkAntichrist.dataset.workId;
+  if (workId && worksIndex.has(workId)) {
+    activateWork(workId, { skipIfSame: true }).catch(err => console.error(err));
+  } else if (linkAntichrist.dataset.src) {
+    loadText(linkAntichrist.dataset.src).catch(err => alert('Failed to load text: ' + err.message));
+  }
 });
+
+window.addEventListener('resize', refreshLayoutMetrics);
+window.addEventListener('load', refreshLayoutMetrics);
 
 // Auto-load on first visit
 window.addEventListener('DOMContentLoaded', () => {
   loadAnnotations();
-  const src = linkAntichrist.dataset.src; // e.g., "antichrist_de_sample.txt" in same folder as index.html
-  loadText(src).catch(err => {
-    textContainer.textContent = 'Failed to load the sample text. Place a public-domain text file alongside index.html and set the link.';
-  });
+  renderLatestWorks();
+  if (DEFAULT_WORK_ID) {
+    activateWork(DEFAULT_WORK_ID).catch(err => {
+      textContainer.textContent = 'Failed to load the sample text. Place a public-domain text file alongside index.html and set the link.';
+      console.error(err);
+    });
+  } else if (linkAntichrist.dataset.src) {
+    loadText(linkAntichrist.dataset.src).catch(err => {
+      textContainer.textContent = 'Failed to load the sample text. Place a public-domain text file alongside index.html and set the link.';
+    });
+  }
 });
