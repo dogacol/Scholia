@@ -38,6 +38,40 @@ function defaultWorkId() {
   return worksDirectory[0] ? worksDirectory[0].id : null;
 }
 
+function findWorkById(id) {
+  return worksDirectory.find(item => item.id === id);
+}
+
+function readHashParams() {
+  const hash = window.location.hash.startsWith('#')
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  if (!hash) return {};
+  const params = new URLSearchParams(hash);
+  const result = {};
+  params.forEach((value, key) => {
+    result[key] = value;
+  });
+  return result;
+}
+
+function updateUrlHash({ work, ann } = {}, { replace = true } = {}) {
+  const params = new URLSearchParams();
+  if (work) params.set('work', work);
+  if (ann) params.set('ann', ann);
+  const hashString = params.toString();
+  const newHash = hashString ? `#${hashString}` : '';
+  const target = `${window.location.pathname}${window.location.search}${newHash}`;
+  const method = replace ? 'replaceState' : 'pushState';
+  if (history && history[method]) {
+    history[method](null, '', target);
+  } else if (hashString) {
+    window.location.hash = newHash;
+  } else {
+    window.location.hash = '';
+  }
+}
+
 function annotationBelongsToCurrentWork(ann) {
   if (!currentWork) return false;
   const fallback = defaultWorkId();
@@ -109,6 +143,7 @@ function showLanding(clearWork = false) {
       searchBox.disabled = true;
     }
     annotationView.innerHTML = '';
+    updateUrlHash({});
   }
   if (worksSearch) worksSearch.focus();
   updateActiveWorkIndicator();
@@ -126,8 +161,9 @@ function saveAnnotations() {
 
 function uid() { return 'a_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 
-async function loadText(work) {
+async function loadText(work, options = {}) {
   if (!work) return;
+  const { updateHash = false } = options;
   document.body.classList.add('is-reading');
   landingSection.setAttribute('hidden', '');
   readerShell.removeAttribute('hidden');
@@ -150,6 +186,9 @@ async function loadText(work) {
     annotationView.innerHTML = '<em>No annotation selected.</em>';
     renderText();
     updateActiveWorkIndicator();
+    if (updateHash) {
+      updateUrlHash({ work: work.id });
+    }
   } catch (err) {
     textContainer.innerHTML = '<p class="loading-error">Failed to load the selected work.</p>';
     alert('Failed to load text: ' + err.message);
@@ -393,12 +432,15 @@ function openAnnotation(annId) {
   const link = document.createElement('div');
   link.style.marginTop = '0.75rem';
   const url = new URL(window.location.href);
-  url.hash = `ann=${ann.id}`;
+  const linkParams = new URLSearchParams();
+  linkParams.set('work', currentWork.id);
+  linkParams.set('ann', ann.id);
+  url.hash = linkParams.toString();
   link.innerHTML = `<a href="${url.toString()}">Link to this annotation</a>`;
   annotationView.appendChild(header);
   annotationView.appendChild(body);
   annotationView.appendChild(link);
-  location.hash = `ann=${ann.id}`;
+  updateUrlHash({ work: currentWork.id, ann: ann.id });
 }
 
 closeSidebar.addEventListener('click', () => {
@@ -408,8 +450,8 @@ closeSidebar.addEventListener('click', () => {
 });
 
 function restoreFromHash() {
-  const m = location.hash.match(/ann=([A-Za-z0-9_]+)/);
-  if (m) openAnnotation(m[1]);
+  const { ann } = readHashParams();
+  if (ann) openAnnotation(ann);
 }
 
 // Search
@@ -487,7 +529,7 @@ if (worksList) {
     e.preventDefault();
     const work = worksDirectory.find(item => item.id === button.dataset.workId);
     if (work) {
-      loadText(work);
+      loadText(work, { updateHash: true });
     }
   });
 }
@@ -505,5 +547,21 @@ function escapeHtml(s){return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;'
 window.addEventListener('DOMContentLoaded', () => {
   loadAnnotations();
   renderWorksDirectory();
-  showLanding(true);
+  const params = readHashParams();
+  let workToLoad = null;
+  if (params.work) {
+    workToLoad = findWorkById(params.work);
+  } else if (params.ann) {
+    const ann = annotations.find(a => a.id === params.ann);
+    if (ann) {
+      const fallback = defaultWorkId();
+      const targetId = ann.workId || fallback;
+      workToLoad = findWorkById(targetId);
+    }
+  }
+  if (workToLoad) {
+    loadText(workToLoad);
+  } else {
+    showLanding(true);
+  }
 });
