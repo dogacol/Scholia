@@ -16,6 +16,7 @@ const btnExport = document.getElementById('btn-export');
 
 let docParagraphs = []; // [{id, text}]
 let annotations = [];   // [{id, pid, start, end, exact, prefix, suffix, body, tags, createdAt}]
+let currentSearchMatches = new Map(); // pid -> [{id, start, end}]
 
 const STORAGE_KEY = 'scholia_annotations_v1';
 
@@ -37,70 +38,102 @@ async function loadText(url) {
   // Split into paragraphs by blank lines
   const paras = txt.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
   docParagraphs = paras.map((t, i) => ({ id: `p${i+1}`, text: t.replace(/\s+/g,' ').trim() }));
+  currentSearchMatches = new Map();
+  if (searchBox) searchBox.value = '';
   renderText();
-  restoreFromHash();
 }
 
 function renderText() {
+  const annotationMap = new Map();
+  annotations.forEach(a => {
+    if (!annotationMap.has(a.pid)) annotationMap.set(a.pid, []);
+    annotationMap.get(a.pid).push(a);
+  });
+  for (const arr of annotationMap.values()) {
+    arr.sort((a, b) => a.start - b.start);
+  }
+
   textContainer.innerHTML = '';
   docParagraphs.forEach(p => {
     const el = document.createElement('p');
     el.dataset.pid = p.id;
     el.dataset.original = p.text;
-    el.textContent = p.text;
+    const anns = annotationMap.get(p.id) || [];
+    const hits = currentSearchMatches.get(p.id) || [];
+    el.innerHTML = buildParagraphHTML(p.text, anns, hits);
     textContainer.appendChild(el);
   });
-  applyAllAnnotations();
+  tooltip.hidden = true;
+  restoreFromHash();
 }
 
-function applyAllAnnotations() {
-  // Re-apply all highlights per paragraph. Sort by start desc to keep offsets stable.
-  const byPid = new Map();
-  annotations.forEach(a => {
-    if (!byPid.has(a.pid)) byPid.set(a.pid, []);
-    byPid.get(a.pid).push(a);
+function buildParagraphHTML(text, paragraphAnnotations, searchHits) {
+  if (!text) return '';
+  const events = [];
+  paragraphAnnotations.forEach(a => {
+    events.push({ pos: a.start, type: 'start', kind: 'annotation', item: a });
+    events.push({ pos: a.end, type: 'end', kind: 'annotation', item: a });
   });
-  for (const [pid, arr] of byPid) {
-    const p = textContainer.querySelector(`p[data-pid="${pid}"]`);
-    if (!p) continue;
-    p.textContent = p.dataset.original;
-    // Sort descending by start
-    arr.sort((x,y) => y.start - x.start);
-    arr.forEach(a => wrapOffsetsInParagraph(p, a.start, a.end, a.id));
-  }
-}
+  searchHits.forEach(h => {
+    events.push({ pos: h.start, type: 'start', kind: 'search', item: h });
+    events.push({ pos: h.end, type: 'end', kind: 'search', item: h });
+  });
+  events.sort((a, b) => {
+    if (a.pos !== b.pos) return a.pos - b.pos;
+    if (a.type !== b.type) return a.type === 'end' ? -1 : 1;
+    const orderStart = { annotation: 0, search: 1 };
+    const orderEnd = { search: 0, annotation: 1 };
+    if (a.type === 'start') {
+      return orderStart[a.kind] - orderStart[b.kind];
+    }
+    return orderEnd[a.kind] - orderEnd[b.kind];
+  });
 
-function wrapOffsetsInParagraph(pEl, start, end, annId) {
-  // Walk text nodes, split at [start,end), wrap with span.annotation
-  const walker = document.createTreeWalker(pEl, NodeFilter.SHOW_TEXT, null);
-  let pos = 0;
-  let startNode, startOffset, endNode, endOffset;
-  while (walker.nextNode()) {
-    const n = walker.currentNode;
-    const nextPos = pos + n.textContent.length;
-    if (start >= pos && start <= nextPos) { startNode = n; startOffset = start - pos; }
-    if (end >= pos && end <= nextPos) { endNode = n; endOffset = end - pos; break; }
-    pos = nextPos;
+  let html = '';
+  let cursor = 0;
+  const openAnnotations = [];
+  const openSearches = [];
+
+  function wrapSegment(segment) {
+    if (!segment) return '';
+    let chunk = escapeHtml(segment);
+    for (let i = openSearches.length - 1; i >= 0; i--) {
+      const hit = openSearches[i];
+      chunk = `<mark class="searchHit" data-search-id="${hit.id}">${chunk}</mark>`;
+    }
+    for (let i = openAnnotations.length - 1; i >= 0; i--) {
+      const ann = openAnnotations[i];
+      chunk = `<span class="annotation" data-ann-id="${ann.id}">${chunk}</span>`;
+    }
+    return chunk;
   }
-  if (!startNode || !endNode) return;
-  // Split end first
-  if (endOffset !== endNode.textContent.length) endNode.splitText(endOffset);
-  let nodeForWrap = startNode;
-  if (startOffset !== 0) nodeForWrap = startNode.splitText(startOffset);
-  // Now nodeForWrap up to before end is contiguous text nodes until we reach a boundary
-  const span = document.createElement('span');
-  span.className = 'annotation';
-  span.dataset.annId = annId;
-  // Collect nodes to wrap until we hit a boundary (next sibling is the split end boundary)
-  let current = nodeForWrap;
-  while (current && current !== endNode.nextSibling) {
-    const next = current.nextSibling;
-    span.appendChild(current);
-    current = next;
+
+  events.forEach(ev => {
+    const pos = Math.max(0, Math.min(text.length, ev.pos));
+    if (pos > cursor) {
+      html += wrapSegment(text.slice(cursor, pos));
+      cursor = pos;
+    }
+    if (ev.type === 'end') {
+      if (ev.kind === 'annotation') {
+        const idx = openAnnotations.findIndex(a => a.id === ev.item.id);
+        if (idx !== -1) openAnnotations.splice(idx, 1);
+      } else {
+        const idx = openSearches.findIndex(h => h.id === ev.item.id);
+        if (idx !== -1) openSearches.splice(idx, 1);
+      }
+    } else {
+      if (ev.kind === 'annotation') {
+        openAnnotations.push(ev.item);
+      } else {
+        openSearches.push(ev.item);
+      }
+    }
+  });
+  if (cursor < text.length) {
+    html += wrapSegment(text.slice(cursor));
   }
-  // Insert span at the correct place
-  const ref = endNode.nextSibling;
-  pEl.insertBefore(span, ref);
+  return html || escapeHtml(text);
 }
 
 function getSelectionWithin(el) {
@@ -183,7 +216,7 @@ annotateForm.addEventListener('submit', (e) => {
   };
   annotations.push(ann);
   saveAnnotations();
-  applyAllAnnotations();
+  renderText();
   hideAnnotateToolbar();
   openAnnotation(ann.id);
   // Clear selection
@@ -253,28 +286,26 @@ function restoreFromHash() {
 // Search
 searchBox.addEventListener('input', () => {
   const q = searchBox.value.trim();
-  // Clear existing emphasis
-  document.querySelectorAll('.searchHit').forEach(n => n.classList.remove('searchHit'));
-  if (!q) return;
+  if (!q) {
+    currentSearchMatches = new Map();
+    renderText();
+    return;
+  }
   const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-  textContainer.querySelectorAll('p').forEach(p => {
-    // skip inside annotation spans; work on a cloned text to compute matches
-    const full = p.dataset.original;
+  const matches = new Map();
+  docParagraphs.forEach(p => {
+    const arr = [];
     let match;
-    const hits = [];
-    while ((match = re.exec(full)) !== null) {
-      hits.push({start: match.index, end: match.index + match[0].length});
-      if (hits.length > 2000) break;
+    while ((match = re.exec(p.text)) !== null) {
+      arr.push({ id: `${p.id}-search-${arr.length}`, start: match.index, end: match.index + match[0].length });
+      if (arr.length > 2000) break;
     }
-    // apply highlights from end to start
-    for (let i = hits.length - 1; i >= 0; i--) {
-      const h = hits[i];
-      wrapOffsetsInParagraph(p, h.start, h.end, `search-${i}`);
-      // mark the newly created span for styling
-      const span = p.querySelector('span.annotation[data-ann-id="search-' + i + '"]') || p.querySelector('span.annotation');
-      if (span) span.classList.add('searchHit');
+    if (arr.length) {
+      matches.set(p.id, arr);
     }
   });
+  currentSearchMatches = matches;
+  renderText();
 });
 
 // Import/export
@@ -301,7 +332,7 @@ btnImport.addEventListener('click', async () => {
       if (!Array.isArray(data)) throw new Error('Invalid file');
       annotations = data;
       saveAnnotations();
-      applyAllAnnotations();
+      renderText();
       alert('Imported annotations.');
     } catch (e) {
       alert('Import failed: ' + e.message);
