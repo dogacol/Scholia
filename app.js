@@ -1,8 +1,12 @@
-// Simple Scholia-like annotator for a single work, storing annotations in localStorage.
+// Simple Scholia-like annotator that now supports a library of works.
 // Text is loaded from a plain UTF-8 file and split into paragraphs.
 const textContainer = document.getElementById('textContainer');
 const searchBox = document.getElementById('searchBox');
-const linkAntichrist = document.getElementById('link-antichrist');
+const worksSearch = document.getElementById('worksSearch');
+const worksList = document.getElementById('worksList');
+const landingSection = document.getElementById('landing');
+const readerShell = document.getElementById('readerShell');
+const libraryLink = document.getElementById('libraryLink');
 const sidebar = document.getElementById('sidebar');
 const closeSidebar = document.getElementById('closeSidebar');
 const annotationView = document.getElementById('annotationView');
@@ -14,11 +18,101 @@ const tooltip = document.getElementById('tooltip');
 const btnImport = document.getElementById('btn-import');
 const btnExport = document.getElementById('btn-export');
 
+const worksDirectory = [
+  {
+    id: 'antichrist',
+    title: 'Nietzsche — Der Antichrist',
+    src: 'antichrist_de_sample.txt',
+    description: 'Sample German excerpt'
+  }
+];
+
 let docParagraphs = []; // [{id, text}]
-let annotations = [];   // [{id, pid, start, end, exact, prefix, suffix, body, tags, createdAt}]
+let annotations = [];   // [{id, pid, start, end, exact, prefix, suffix, body, tags, createdAt, workId}]
+let currentWork = null;
 let currentSearchMatches = new Map(); // pid -> [{id, start, end}]
 
 const STORAGE_KEY = 'scholia_annotations_v1';
+
+function defaultWorkId() {
+  return worksDirectory[0] ? worksDirectory[0].id : null;
+}
+
+function annotationBelongsToCurrentWork(ann) {
+  if (!currentWork) return false;
+  const fallback = defaultWorkId();
+  const annWorkId = ann.workId || fallback;
+  return annWorkId === currentWork.id;
+}
+
+function renderWorksDirectory(filterText = '') {
+  if (!worksList) return;
+  const query = filterText.trim().toLowerCase();
+  const items = worksDirectory
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
+    .filter(item => {
+      if (!query) return true;
+      const haystack = `${item.title} ${item.description || ''}`.toLowerCase();
+      return haystack.includes(query);
+    });
+
+  worksList.innerHTML = '';
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'works-empty';
+    li.textContent = 'No works match your search.';
+    worksList.appendChild(li);
+    return;
+  }
+
+  items.forEach(item => {
+    const li = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'work-link';
+    button.dataset.workId = item.id;
+    button.innerHTML = `
+      <span class="work-title">${escapeHtml(item.title)}</span>
+      ${item.description ? `<span class="work-meta">${escapeHtml(item.description)}</span>` : ''}
+    `;
+    li.appendChild(button);
+    worksList.appendChild(li);
+  });
+  updateActiveWorkIndicator();
+}
+
+function updateActiveWorkIndicator() {
+  if (!worksList) return;
+  const buttons = worksList.querySelectorAll('button[data-work-id]');
+  buttons.forEach(btn => {
+    const isActive = currentWork && btn.dataset.workId === currentWork.id;
+    btn.classList.toggle('is-active', isActive);
+  });
+}
+
+function showLanding(clearWork = false) {
+  document.body.classList.remove('is-reading');
+  landingSection.removeAttribute('hidden');
+  readerShell.setAttribute('hidden', '');
+  sidebar.style.display = 'none';
+  hideAnnotateToolbar();
+  tooltip.hidden = true;
+  if (clearWork) {
+    currentWork = null;
+    docParagraphs = [];
+    currentSearchMatches = new Map();
+    textContainer.innerHTML = '';
+    if (searchBox) {
+      searchBox.value = '';
+      searchBox.placeholder = 'Search in text…';
+      searchBox.disabled = true;
+    }
+    annotationView.innerHTML = '';
+  }
+  if (worksSearch) worksSearch.focus();
+  updateActiveWorkIndicator();
+}
 
 function loadAnnotations() {
   try {
@@ -32,20 +126,50 @@ function saveAnnotations() {
 
 function uid() { return 'a_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 
-async function loadText(url) {
-  const res = await fetch(url);
-  const txt = await res.text();
-  // Split into paragraphs by blank lines
-  const paras = txt.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
-  docParagraphs = paras.map((t, i) => ({ id: `p${i+1}`, text: t.replace(/\s+/g,' ').trim() }));
-  currentSearchMatches = new Map();
-  if (searchBox) searchBox.value = '';
-  renderText();
+async function loadText(work) {
+  if (!work) return;
+  document.body.classList.add('is-reading');
+  landingSection.setAttribute('hidden', '');
+  readerShell.removeAttribute('hidden');
+  sidebar.style.display = 'block';
+  textContainer.innerHTML = '<p class="loading">Loading work…</p>';
+  try {
+    const res = await fetch(work.src);
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    const txt = await res.text();
+    // Split into paragraphs by blank lines
+    const paras = txt.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+    docParagraphs = paras.map((t, i) => ({ id: `p${i+1}`, text: t.replace(/\s+/g,' ').trim() }));
+    currentWork = work;
+    currentSearchMatches = new Map();
+    if (searchBox) {
+      searchBox.disabled = false;
+      searchBox.value = '';
+      searchBox.placeholder = `Search in ${work.title}…`;
+    }
+    annotationView.innerHTML = '<em>No annotation selected.</em>';
+    renderText();
+    updateActiveWorkIndicator();
+  } catch (err) {
+    textContainer.innerHTML = '<p class="loading-error">Failed to load the selected work.</p>';
+    alert('Failed to load text: ' + err.message);
+  }
 }
 
 function renderText() {
+  if (!currentWork || !docParagraphs.length) {
+    if (!currentWork) {
+      textContainer.innerHTML = '<p class="empty-state">Choose a work from the library to start reading.</p>';
+    } else {
+      textContainer.innerHTML = '<p class="empty-state">No text available for this work.</p>';
+    }
+    tooltip.hidden = true;
+    return;
+  }
+
+  const relevantAnnotations = annotations.filter(annotationBelongsToCurrentWork);
   const annotationMap = new Map();
-  annotations.forEach(a => {
+  relevantAnnotations.forEach(a => {
     if (!annotationMap.has(a.pid)) annotationMap.set(a.pid, []);
     annotationMap.get(a.pid).push(a);
   });
@@ -177,6 +301,7 @@ function rangeToParagraphOffsets(range) {
 let pendingSelection = null;
 
 document.addEventListener('mouseup', (e) => {
+  if (!currentWork) return;
   const range = getSelectionWithin(textContainer);
   if (!range) { hideAnnotateToolbar(); return; }
   const rect = range.getBoundingClientRect();
@@ -199,7 +324,7 @@ function hideAnnotateToolbar() {
 
 annotateForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  if (!pendingSelection) return;
+  if (!pendingSelection || !currentWork) return;
   const off = rangeToParagraphOffsets(pendingSelection);
   if (!off) { alert('Selection error. Try selecting within a single paragraph.'); return; }
   const ann = {
@@ -212,7 +337,8 @@ annotateForm.addEventListener('submit', (e) => {
     suffix: off.suffix,
     body: noteBody.value.trim(),
     tags: noteTags.value.split(',').map(s=>s.trim()).filter(Boolean),
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    workId: currentWork.id
   };
   annotations.push(ann);
   saveAnnotations();
@@ -227,9 +353,10 @@ document.getElementById('cancelAnnotate').addEventListener('click', hideAnnotate
 
 // Hover tooltip and click to open
 textContainer.addEventListener('mouseover', (e) => {
+  if (!currentWork) { tooltip.hidden = true; return; }
   const span = e.target.closest('.annotation');
   if (!span) { tooltip.hidden = true; return; }
-  const ann = annotations.find(a => a.id === span.dataset.annId);
+  const ann = annotations.find(a => a.id === span.dataset.annId && annotationBelongsToCurrentWork(a));
   if (!ann) return;
   tooltip.textContent = ann.body.slice(0, 220);
   tooltip.hidden = false;
@@ -243,13 +370,15 @@ textContainer.addEventListener('mouseout', (e) => {
 });
 
 textContainer.addEventListener('click', (e) => {
+  if (!currentWork) return;
   const span = e.target.closest('.annotation');
   if (!span) return;
   openAnnotation(span.dataset.annId);
 });
 
 function openAnnotation(annId) {
-  const ann = annotations.find(a => a.id === annId);
+  if (!currentWork) return;
+  const ann = annotations.find(a => a.id === annId && annotationBelongsToCurrentWork(a));
   if (!ann) return;
   sidebar.style.display = 'block';
   annotationView.innerHTML = "";
@@ -285,6 +414,10 @@ function restoreFromHash() {
 
 // Search
 searchBox.addEventListener('input', () => {
+  if (!currentWork) {
+    searchBox.value = '';
+    return;
+  }
   const q = searchBox.value.trim();
   if (!q) {
     currentSearchMatches = new Map();
@@ -341,20 +474,36 @@ btnImport.addEventListener('click', async () => {
   input.click();
 });
 
+if (worksSearch) {
+  worksSearch.addEventListener('input', () => {
+    renderWorksDirectory(worksSearch.value);
+  });
+}
+
+if (worksList) {
+  worksList.addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-work-id]');
+    if (!button) return;
+    e.preventDefault();
+    const work = worksDirectory.find(item => item.id === button.dataset.workId);
+    if (work) {
+      loadText(work);
+    }
+  });
+}
+
+if (libraryLink) {
+  libraryLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    showLanding(!currentWork);
+  });
+}
+
 // Utility
 function escapeHtml(s){return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]))}
 
-// Load sample on click
-linkAntichrist.addEventListener('click', (e) => {
-  e.preventDefault();
-  loadText(linkAntichrist.dataset.src).catch(err => alert('Failed to load text: '+err.message));
-});
-
-// Auto-load on first visit
 window.addEventListener('DOMContentLoaded', () => {
   loadAnnotations();
-  const src = linkAntichrist.dataset.src; // e.g., "antichrist_de_sample.txt" in same folder as index.html
-  loadText(src).catch(err => {
-    textContainer.textContent = 'Failed to load the sample text. Place a public-domain text file alongside index.html and set the link.';
-  });
+  renderWorksDirectory();
+  showLanding(true);
 });

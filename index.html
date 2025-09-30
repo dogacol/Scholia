@@ -3,33 +3,48 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scholia — Nietzsche: Der Antichrist</title>
+  <title>Scholia — Reading Room</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header>
     <div class="brand">Scholia</div>
     <nav>
-      <a href="#" id="link-antichrist" data-src="antichrist_de_sample.txt">Nietzsche — Der Antichrist</a>
+      <a href="#" id="libraryLink">Library</a>
       <button id="btn-import" title="Import annotations JSON">Import</button>
       <button id="btn-export" title="Export annotations JSON">Export</button>
     </nav>
-    <div class="search">
-      <input type="search" id="searchBox" placeholder="Search in text…" aria-label="Search in text"/>
+    <div class="search" id="readerSearch">
+      <input type="search" id="searchBox" placeholder="Search in text…" aria-label="Search in text" />
     </div>
   </header>
 
   <main>
-    <section id="reader">
-      <div id="textContainer" aria-live="polite"></div>
-    </section>
-    <aside id="sidebar" aria-label="Annotations panel">
-      <div id="sidebarHeader">
-        <h2>Annotation</h2>
-        <button id="closeSidebar" aria-label="Close">×</button>
+    <section id="landing" aria-labelledby="landingTitle">
+      <div class="landing-inner">
+        <h1 id="landingTitle">Reading Room</h1>
+        <p class="landing-tagline">Browse the public-domain collection and open a work to begin annotating.</p>
+        <div class="landing-search">
+          <input type="search" id="worksSearch" placeholder="Search works by title…" aria-label="Search works" />
+        </div>
+        <nav class="works-directory" aria-label="Available works">
+          <ul id="worksList" class="works-list"></ul>
+        </nav>
       </div>
-      <div id="annotationView"></div>
-    </aside>
+    </section>
+
+    <section id="readerShell" hidden>
+      <section id="reader">
+        <div id="textContainer" aria-live="polite"></div>
+      </section>
+      <aside id="sidebar" aria-label="Annotations panel">
+        <div id="sidebarHeader">
+          <h2>Annotation</h2>
+          <button id="closeSidebar" aria-label="Close">×</button>
+        </div>
+        <div id="annotationView"></div>
+      </aside>
+    </section>
   </main>
 
   <div id="annotateToolbar" role="dialog" aria-modal="false">
@@ -50,7 +65,7 @@
   <footer>
     <p>
       Text loader expects a public-domain source. This demo ships with a short German sample.
-      For a full edition, place a public-domain text file alongside <code>index.html</code> and update the link.
+      For a full edition, place a public-domain text file alongside <code>index.html</code> and update the library entry.
     </p>
   </footer>
 
