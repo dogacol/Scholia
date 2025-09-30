@@ -3,62 +3,110 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scholia — Nietzsche: Der Antichrist</title>
+  <title>Scholia — Annotate the Classics</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <div class="header-top">
-      <div class="brand">Scholia</div>
-      <nav>
-        <a href="#" id="link-antichrist" data-src="antichrist_de_sample.txt" data-work-id="antichrist-1895-de">Nietzsche — Der Antichrist</a>
-        <button id="btn-import" title="Import annotations JSON">Import</button>
-        <button id="btn-export" title="Export annotations JSON">Export</button>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#" aria-label="Scholia home">Scholia</a>
+      <nav class="site-nav">
+        <a href="#" id="libraryLink" class="nav-link">Library</a>
       </nav>
     </div>
-    <div class="search">
-      <input type="search" id="searchBox" placeholder="Search in text…" aria-label="Search in text"/>
+    <div id="textSearchShell" class="text-search" hidden>
+      <label class="visually-hidden" for="searchBox">Search within the current work</label>
+      <input
+        type="search"
+        id="searchBox"
+        placeholder="Search within this work…"
+        aria-label="Search within this work"
+        autocomplete="off"
+      />
     </div>
-    <section class="latest-works" aria-labelledby="latestWorksHeading">
-      <div class="latest-works__inner">
-        <h2 id="latestWorksHeading">Latest Works</h2>
-        <ul id="latestWorksList" class="latest-works__list" role="list"></ul>
-      </div>
-    </section>
   </header>
 
   <main>
-    <section id="reader">
-      <div id="textContainer" aria-live="polite"></div>
-    </section>
-    <aside id="sidebar" aria-label="Annotations panel">
-      <div id="sidebarHeader">
-        <h2>Annotation</h2>
-        <button id="closeSidebar" aria-label="Close">×</button>
+    <section id="landing" class="landing" aria-labelledby="landingHeading">
+      <div class="landing-hero">
+        <div class="landing-hero__content">
+          <h1 id="landingHeading">Annotate the classics.</h1>
+          <p class="landing-hero__lead">
+            Pick a work from the library to start adding your notes, commentary, and references directly on the page.
+          </p>
+          <div class="landing-search">
+            <label class="visually-hidden" for="worksSearch">Search the library</label>
+            <input
+              type="search"
+              id="worksSearch"
+              placeholder="Search the library…"
+              aria-label="Search the library"
+              autocomplete="off"
+            />
+          </div>
+        </div>
       </div>
-      <div id="annotationView"></div>
-    </aside>
+
+      <section class="latest-works" aria-labelledby="latestWorksHeading">
+        <div class="section-header">
+          <h2 id="latestWorksHeading">Latest updates</h2>
+          <p class="section-subtitle">Recently refreshed works ready for annotation.</p>
+        </div>
+        <ul id="latestWorksList" class="latest-works__list" role="list"></ul>
+      </section>
+
+      <div class="landing-actions">
+        <a href="#worksLibrary" id="seeAllWorks" class="landing-link">Browse all works →</a>
+      </div>
+
+      <section id="worksLibrary" class="works-library" aria-labelledby="worksLibraryHeading">
+        <div class="section-header">
+          <h2 id="worksLibraryHeading">All works</h2>
+          <p class="section-subtitle">Select a work below to open it in the reader.</p>
+        </div>
+        <ul id="worksList" class="works-list" role="list"></ul>
+      </section>
+    </section>
+
+    <section id="readerShell" class="reader-shell" hidden>
+      <div class="reader-layout">
+        <section id="reader" aria-live="polite">
+          <div id="textContainer"></div>
+        </section>
+        <aside id="sidebar" aria-label="Annotations panel">
+          <div id="sidebarHeader">
+            <h2>Annotation</h2>
+            <button id="closeSidebar" aria-label="Close annotation panel">×</button>
+          </div>
+          <div id="annotationView"><em>No annotation selected.</em></div>
+        </aside>
+      </div>
+    </section>
+
+    <div id="annotateToolbar" role="dialog" aria-modal="false">
+      <form id="annotateForm">
+        <textarea
+          id="noteBody"
+          rows="6"
+          placeholder="Add your explanation, with citations if relevant…"
+          required
+        ></textarea>
+        <div class="row">
+          <input id="noteTags" placeholder="tags,comma,separated" />
+        </div>
+        <div class="row">
+          <button type="submit">Save annotation</button>
+          <button type="button" id="cancelAnnotate">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="tooltip" role="tooltip" hidden></div>
   </main>
 
-  <div id="annotateToolbar" role="dialog" aria-modal="false">
-    <form id="annotateForm">
-      <textarea id="noteBody" rows="6" placeholder="Add your explanation, with citations if relevant…" required></textarea>
-      <div class="row">
-        <input id="noteTags" placeholder="tags,comma,separated" />
-      </div>
-      <div class="row">
-        <button type="submit">Save annotation</button>
-        <button type="button" id="cancelAnnotate">Cancel</button>
-      </div>
-    </form>
-  </div>
-
-  <div id="tooltip" role="tooltip" hidden></div>
-
-  <footer>
+  <footer class="site-footer">
     <p>
-      Text loader expects a public-domain source. This demo ships with a short German sample.
-      For a full edition, place a public-domain text file alongside <code>index.html</code> and update the link.
+      Scholia runs entirely in the browser. Choose a work from the library, select a passage, and start annotating—no imports or exports required.
     </p>
   </footer>
 

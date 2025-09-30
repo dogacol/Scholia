@@ -4,9 +4,13 @@ const textContainer = document.getElementById('textContainer');
 const searchBox = document.getElementById('searchBox');
 const worksSearch = document.getElementById('worksSearch');
 const worksList = document.getElementById('worksList');
+const latestWorksList = document.getElementById('latestWorksList');
 const landing = document.getElementById('landing');
 const readerShell = document.getElementById('readerShell');
+const worksLibrary = document.getElementById('worksLibrary');
 const libraryLink = document.getElementById('libraryLink');
+const textSearchShell = document.getElementById('textSearchShell');
+const seeAllWorksLink = document.getElementById('seeAllWorks');
 const sidebar = document.getElementById('sidebar');
 const closeSidebar = document.getElementById('closeSidebar');
 const annotationView = document.getElementById('annotationView');
@@ -15,8 +19,6 @@ const annotateForm = document.getElementById('annotateForm');
 const noteBody = document.getElementById('noteBody');
 const noteTags = document.getElementById('noteTags');
 const tooltip = document.getElementById('tooltip');
-const btnImport = document.getElementById('btn-import');
-const btnExport = document.getElementById('btn-export');
 
 const worksDirectory = [
   {
@@ -27,7 +29,30 @@ const worksDirectory = [
     language: 'German',
     src: 'antichrist_de_sample.txt',
     description:
-      'Sample selection from the 1895 German publication prepared for the annotation demo.'
+      'Sample selection from the 1895 German publication prepared for the annotation demo.',
+    updatedAt: '2024-02-02T10:00:00Z'
+  },
+  {
+    id: 'beyond-good-and-evil-1886-en',
+    title: 'Beyond Good and Evil',
+    author: 'Friedrich Nietzsche',
+    year: 1886,
+    language: 'English',
+    src: 'beyond_good_and_evil_en_sample.txt',
+    description:
+      'Selections from Helen Zimmern’s 1909 translation capturing Nietzsche’s critique of dogmatism.',
+    updatedAt: '2024-02-05T16:30:00Z'
+  },
+  {
+    id: 'twilight-of-the-idols-1889-en',
+    title: 'Twilight of the Idols',
+    author: 'Friedrich Nietzsche',
+    year: 1889,
+    language: 'English',
+    src: 'twilight_of_the_idols_en_sample.txt',
+    description:
+      'Extract from Anthony M. Ludovici’s public-domain translation first published in 1911.',
+    updatedAt: '2024-01-28T08:15:00Z'
   }
 ];
 
@@ -121,12 +146,18 @@ function uid() {
 
 function showLanding() {
   if (landing) landing.hidden = false;
+  if (worksLibrary) worksLibrary.hidden = false;
   if (readerShell) readerShell.hidden = true;
+  if (textSearchShell) textSearchShell.hidden = true;
+  if (sidebar) sidebar.style.display = 'block';
 }
 
 function showReaderShell() {
   if (landing) landing.hidden = true;
+  if (worksLibrary) worksLibrary.hidden = true;
   if (readerShell) readerShell.hidden = false;
+  if (textSearchShell) textSearchShell.hidden = false;
+  if (sidebar) sidebar.style.display = 'block';
 }
 
 function renderWorksDirectory(filterText = '') {
@@ -148,47 +179,78 @@ function renderWorksDirectory(filterText = '') {
     : worksDirectory.slice();
 
   if (!filtered.length) {
-    worksList.innerHTML = '<li class="works-list__empty">No works match that search.</li>';
+    worksList.innerHTML = '<li class="works-list__empty">No works match your search.</li>';
     return;
   }
 
-  const markup = filtered
-    .map((work) => {
-      const meta = [work.author, work.year, work.language].filter(Boolean).join(' · ');
-      const metaMarkup = meta ? `<span class="works-list__meta">${escapeHtml(meta)}</span>` : '';
-      const description = work.description
-        ? `<span class="works-list__description">${escapeHtml(work.description)}</span>`
-        : '';
-      return `<li class="works-list__item" data-work-id="${work.id}">
-        <button type="button" class="works-list__link" data-work-id="${work.id}" aria-pressed="false">
-          <span class="works-list__title">${escapeHtml(work.title)}</span>
-          ${metaMarkup}
-          ${description}
-        </button>
-      </li>`;
-    })
-    .join('');
+  const markup = filtered.map((work) => buildWorkListItem(work, 'library')).join('');
   worksList.innerHTML = markup;
   updateActiveWorkUI(currentWork?.id || null);
 }
 
+function renderLatestWorks() {
+  if (!latestWorksList) return;
+  const sorted = worksDirectory
+    .slice()
+    .sort((a, b) => {
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA;
+    })
+    .slice(0, 4);
+
+  if (!sorted.length) {
+    latestWorksList.innerHTML = '<li class="latest-works__empty">No recent updates yet.</li>';
+    return;
+  }
+
+  latestWorksList.innerHTML = sorted.map((work) => buildWorkListItem(work, 'latest')).join('');
+  updateActiveWorkUI(currentWork?.id || null);
+}
+
+function buildWorkListItem(work, context) {
+  const meta = [work.author, work.year ? String(work.year) : '', work.language || '']
+    .filter(Boolean)
+    .join(' · ');
+  const metaMarkup = meta ? `<p class="work-card__meta">${escapeHtml(meta)}</p>` : '';
+  const descriptionMarkup = work.description
+    ? `<p class="work-card__description">${escapeHtml(work.description)}</p>`
+    : '';
+  const updatedLabel = formatUpdatedAt(work.updatedAt);
+  const updatedMarkup = updatedLabel
+    ? `<p class="work-card__updated">Updated ${escapeHtml(updatedLabel)}</p>`
+    : '';
+  const itemClass = context === 'latest' ? 'latest-works__item' : 'works-list__item';
+  return `<li class="${itemClass}" data-work-id="${work.id}">
+    <button type="button" class="work-card" data-work-id="${work.id}" aria-pressed="false">
+      <span class="work-card__title">${escapeHtml(work.title)}</span>
+      ${metaMarkup}
+      ${descriptionMarkup}
+      ${updatedMarkup}
+    </button>
+  </li>`;
+}
+
+function formatUpdatedAt(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
 function updateActiveWorkUI(activeId) {
-  if (!worksList) return;
-  worksList.querySelectorAll('[data-work-id]').forEach((item) => {
-    const workId = item.dataset.workId;
-    const isActive = workId === activeId;
-    if (item.classList.contains('works-list__item')) {
-      item.classList.toggle('works-list__item--active', isActive);
-    }
-    if (item.tagName === 'BUTTON') {
-      item.classList.toggle('is-active', isActive);
-      item.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    } else {
-      const button = item.querySelector('button[data-work-id]');
-      if (button) {
-        button.classList.toggle('is-active', isActive);
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      }
+  const buttons = document.querySelectorAll('.work-card[data-work-id]');
+  buttons.forEach((button) => {
+    const isActive = button.dataset.workId === activeId;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    const parent = button.closest('[data-work-id]');
+    if (parent) {
+      parent.classList.toggle('is-active', isActive);
     }
   });
 }
@@ -490,7 +552,7 @@ function openAnnotation(annId) {
 }
 
 closeSidebar.addEventListener('click', () => {
-  sidebar.style.display = 'block';
+  sidebar.style.display = 'none';
   annotationView.innerHTML = '<em>No annotation selected.</em>';
 });
 
@@ -539,7 +601,17 @@ if (worksSearch) {
 
 if (worksList) {
   worksList.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-work-id]');
+    const button = event.target.closest('.work-card[data-work-id]');
+    if (!button) return;
+    const work = findWorkById(button.dataset.workId);
+    if (!work) return;
+    loadText(work).catch((err) => console.error(err));
+  });
+}
+
+if (latestWorksList) {
+  latestWorksList.addEventListener('click', (event) => {
+    const button = event.target.closest('.work-card[data-work-id]');
     if (!button) return;
     const work = findWorkById(button.dataset.workId);
     if (!work) return;
@@ -561,6 +633,19 @@ if (libraryLink) {
     updateActiveWorkUI(null);
     updateUrlHash({ work: null, ann: null });
     showLanding();
+    if (worksSearch) {
+      worksSearch.focus();
+    }
+  });
+}
+
+if (seeAllWorksLink) {
+  seeAllWorksLink.addEventListener('click', (event) => {
+    event.preventDefault();
+    const target = document.getElementById('worksLibrary');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 }
 
@@ -596,51 +681,6 @@ function handleHashChange() {
 
 window.addEventListener('hashchange', handleHashChange);
 
-if (btnExport) {
-  btnExport.addEventListener('click', () => {
-    if (!currentWork) {
-      alert('Open a work before exporting annotations.');
-      return;
-    }
-    const data = JSON.stringify(getAnnotationsForCurrentWork(), null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${currentWork.id}-annotations.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-}
-
-if (btnImport) {
-  btnImport.addEventListener('click', () => {
-    if (!currentWork) {
-      alert('Open a work before importing annotations.');
-      return;
-    }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = async () => {
-      const file = input.files[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        if (!Array.isArray(data)) throw new Error('Invalid file');
-        annotationsByWork[currentWork.id] = data;
-        saveAnnotations();
-        renderText();
-        alert('Imported annotations.');
-      } catch (e) {
-        alert('Import failed: ' + e.message);
-      }
-    };
-    input.click();
-  });
-}
-
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
@@ -648,6 +688,7 @@ function escapeHtml(s) {
 window.addEventListener('DOMContentLoaded', () => {
   loadAnnotations();
   renderWorksDirectory(worksSearch ? worksSearch.value || '' : '');
+  renderLatestWorks();
   const params = readHashParams();
   const initialWork = params.work
     ? findWorkById(params.work)
@@ -662,7 +703,7 @@ window.addEventListener('DOMContentLoaded', () => {
       .catch((err) => {
         if (textContainer) {
           textContainer.textContent =
-            'Failed to load the sample text. Place a public-domain text file alongside index.html and set the link.';
+            'Failed to load this work. Confirm that the text file is available alongside the site files.';
         }
         console.error(err);
       });
