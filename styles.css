@@ -20,6 +20,7 @@ main{display:grid;grid-template-columns: 1fr 340px;gap:0;border-top:0}
 
 .annotation{background: #fff3ac; border-bottom: 1px dotted #b48c00; cursor: pointer; padding: 0 1px}
 .annotation:hover{background:#ffe88a}
+mark.searchHit{background:#b3e5fc;color:inherit;padding:0 1px;border-radius:2px}
 
 #annotateToolbar{position:absolute; background:#fff; border:1px solid #ddd; border-radius:8px; padding:0.5rem; box-shadow:0 8px 24px rgba(0,0,0,.1); width:min(420px,92vw); display:none; z-index:20}
 #annotateToolbar textarea, #annotateToolbar input{width:100%; margin:0.25rem 0}
