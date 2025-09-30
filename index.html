@@ -8,15 +8,23 @@
 </head>
 <body>
   <header>
-    <div class="brand">Scholia</div>
-    <nav>
-      <a href="#" id="link-antichrist" data-src="antichrist_de_sample.txt">Nietzsche — Der Antichrist</a>
-      <button id="btn-import" title="Import annotations JSON">Import</button>
-      <button id="btn-export" title="Export annotations JSON">Export</button>
-    </nav>
+    <div class="header-top">
+      <div class="brand">Scholia</div>
+      <nav>
+        <a href="#" id="link-antichrist" data-src="antichrist_de_sample.txt" data-work-id="antichrist-1895-de">Nietzsche — Der Antichrist</a>
+        <button id="btn-import" title="Import annotations JSON">Import</button>
+        <button id="btn-export" title="Export annotations JSON">Export</button>
+      </nav>
+    </div>
     <div class="search">
       <input type="search" id="searchBox" placeholder="Search in text…" aria-label="Search in text"/>
     </div>
+    <section class="latest-works" aria-labelledby="latestWorksHeading">
+      <div class="latest-works__inner">
+        <h2 id="latestWorksHeading">Latest Works</h2>
+        <ul id="latestWorksList" class="latest-works__list" role="list"></ul>
+      </div>
+    </section>
   </header>
 
   <main>
